@@ -20,6 +20,7 @@ def get_dict_index(data_lists, year):
             return k
 
 
+# this functions create the .nc file. If the file already exist, it will append the data into this existent file
 def create_dataset(data_lists, string_attrs, data_path, save_path):
     os.chdir(data_path[:data_path.rfind("/")])
     os.chdir("../")
