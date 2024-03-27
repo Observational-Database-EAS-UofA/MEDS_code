@@ -8,17 +8,17 @@ class Plotter:
         self.ds = xr.open_dataset(ncfile)
 
     def plot_temp_depth(self):
-        temp = self.ds['temp'].values
+        temp = self.ds['psal'].values
         depth = self.ds['depth'].values
-        print(type(temp))
-        i, = np.where(temp > 90)
+        # print(type(temp))
+        # i, = np.where(temp > 90)
         # print(i)
-        print(temp[i])
+        # print(temp[i])
         # print(depth[i])
 
         plt.plot(temp, depth, '.')
         plt.ylabel('depth')
-        plt.xlabel('temp')
+        plt.xlabel('psal')
         plt.gca().invert_yaxis()
         plt.show()
 
