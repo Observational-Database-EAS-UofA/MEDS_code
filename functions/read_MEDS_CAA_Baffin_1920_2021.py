@@ -93,51 +93,54 @@ def create_dataset(data_lists, string_attrs, data_path, save_path):
             ds.to_netcdf(f"MEDS_{key}_raw.nc")
 
 
+def process_chunks(reader, data_lists):
+    for chunk in reader:
+        grouped_df = chunk.groupby(
+            ['DATA_TYPE', 'CR_NUMBER', 'STN_NUMBER', 'SOURCE_ID', 'OBS_YEAR', 'OBS_MONTH', 'OBS_DAY', 'OBS_TIME',
+             'Q_DATE_TIME', 'LONGITUDE (+E)', 'LATITUDE (+N)', 'Q_POS'])
+        for group, data in grouped_df:
+            data_type, cr_number, stn_number, source_id, obs_year, obs_month, obs_day, obs_time, datestr_flag, lon, lat, lonlat_flag = group
+            index = get_dict_index(data_lists, obs_year)
+            data_lists[index]['orig_cruise_id'].append(cr_number)
+            data_lists[index]['instrument_type'].append(data_type)
+            data_lists[index]['station_no'].append(stn_number)
+            data_lists[index]['lon'].append(lon)
+            data_lists[index]['lat'].append(lat)
+            data_lists[index]['lonlat_flag'].append(lonlat_flag)
+            datestr = datetime(obs_year, obs_month, obs_day, obs_time // 100, obs_time % 100)
+            timestamp = datestr.timestamp()
+            datestr = datetime.strftime(datestr, "%Y/%m/%d %H:%M:%S")
+            data_lists[index]['datestr'].append(datestr)
+            data_lists[index]['timestamp'].append(timestamp)
+            data_lists[index]['datestr_flag'].append(datestr_flag)
+            if len(data['DEPTH_PRESS'].values) > 1:
+                data_lists[index]['shallowest_depth'].append(min(data['DEPTH_PRESS'][data['DEPTH_PRESS'] != 0]))
+            else:
+                data_lists[index]['shallowest_depth'].append(min(data['DEPTH_PRESS']))
+            data_lists[index]['deepest_depth'].append(max(data['DEPTH_PRESS']))
+
+            data_lists[index]['temp'].extend(data['TEMP'])
+            data_lists[index]['temp_flag'].extend(data['Q_TEMP'])
+            data_lists[index]['psal'].extend(data['PSAL'])
+            data_lists[index]['psal_flag'].extend(data['Q_PSAL'])
+            if data['D_P_CODE'].values.all() == 'D':
+                data_lists[index]['depth'].extend(data['DEPTH_PRESS'])
+                data_lists[index]['press'].extend([np.nan] * len(data['DEPTH_PRESS']))
+            elif data['D_P_CODE'].values.all() == 'P':
+                data_lists[index]['press'].extend(data['DEPTH_PRESS'])
+                data_lists[index]['depth'].extend([np.nan] * len(data['DEPTH_PRESS']))
+            data_lists[index]['depth_flag'].extend(data['DP_FLAG'])
+            if len(data_lists[index]['parent_index']) > 0:
+                last_parent_index = data_lists[index]['parent_index'][-1]
+                data_lists[index]['parent_index'].extend([(last_parent_index + 1)] * len(data['DEPTH_PRESS']))
+            else:
+                data_lists[index]['parent_index'].extend([0] * len(data['DEPTH_PRESS']))
+
+
 # this function reads the MEDS profile data. It reads the csv files in chunks because of the loads of data
 def read_MEDS(data_path, save_path):
     string_attrs, measurements_attrs, data_lists = initialize_variables()
 
     with pd.read_csv(data_path, chunksize=10 ** 6, low_memory=False, ) as reader:
-        for chunk in reader:
-            grouped_df = chunk.groupby(
-                ['DATA_TYPE', 'CR_NUMBER', 'STN_NUMBER', 'SOURCE_ID', 'OBS_YEAR', 'OBS_MONTH', 'OBS_DAY', 'OBS_TIME',
-                 'Q_DATE_TIME', 'LONGITUDE (+E)', 'LATITUDE (+N)', 'Q_POS'])
-            for group, data in grouped_df:
-                data_type, cr_number, stn_number, source_id, obs_year, obs_month, obs_day, obs_time, datestr_flag, lon, lat, lonlat_flag = group
-                index = get_dict_index(data_lists, obs_year)
-                data_lists[index]['orig_cruise_id'].append(cr_number)
-                data_lists[index]['instrument_type'].append(data_type)
-                data_lists[index]['station_no'].append(stn_number)
-                data_lists[index]['lon'].append(lon)
-                data_lists[index]['lat'].append(lat)
-                data_lists[index]['lonlat_flag'].append(lonlat_flag)
-                datestr = datetime(obs_year, obs_month, obs_day, obs_time // 100, obs_time % 100)
-                timestamp = datestr.timestamp()
-                datestr = datetime.strftime(datestr, "%Y/%m/%d %H:%M:%S")
-                data_lists[index]['datestr'].append(datestr)
-                data_lists[index]['timestamp'].append(timestamp)
-                data_lists[index]['datestr_flag'].append(datestr_flag)
-                if len(data['DEPTH_PRESS'].values) > 1:
-                    data_lists[index]['shallowest_depth'].append(min(data['DEPTH_PRESS'][data['DEPTH_PRESS'] != 0]))
-                else:
-                    data_lists[index]['shallowest_depth'].append(min(data['DEPTH_PRESS']))
-                data_lists[index]['deepest_depth'].append(max(data['DEPTH_PRESS']))
-
-                data_lists[index]['temp'].extend(data['TEMP'])
-                data_lists[index]['temp_flag'].extend(data['Q_TEMP'])
-                data_lists[index]['psal'].extend(data['PSAL'])
-                data_lists[index]['psal_flag'].extend(data['Q_PSAL'])
-                if data['D_P_CODE'].values.all() == 'D':
-                    data_lists[index]['depth'].extend(data['DEPTH_PRESS'])
-                    data_lists[index]['press'].extend([np.nan] * len(data['DEPTH_PRESS']))
-                elif data['D_P_CODE'].values.all() == 'P':
-                    data_lists[index]['press'].extend(data['DEPTH_PRESS'])
-                    data_lists[index]['depth'].extend([np.nan] * len(data['DEPTH_PRESS']))
-                data_lists[index]['depth_flag'].extend(data['DP_FLAG'])
-                if len(data_lists[index]['parent_index']) > 0:
-                    last_parent_index = data_lists[index]['parent_index'][-1]
-                    data_lists[index]['parent_index'].extend([(last_parent_index + 1)] * len(data['DEPTH_PRESS']))
-                else:
-                    data_lists[index]['parent_index'].extend([0] * len(data['DEPTH_PRESS']))
-
+        process_chunks(reader, data_lists)
         create_dataset(data_lists, string_attrs, data_path, save_path)
