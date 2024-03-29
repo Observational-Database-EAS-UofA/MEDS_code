@@ -109,10 +109,8 @@ def process_chunks(reader, data_lists):
             data_lists[index]['lat'].append(lat)
             data_lists[index]['lonlat_flag'].append(lonlat_flag)
             datestr = datetime(obs_year, obs_month, obs_day, obs_time // 100, obs_time % 100)
-            timestamp = datestr.timestamp()
-            datestr = datetime.strftime(datestr, "%Y/%m/%d %H:%M:%S")
-            data_lists[index]['datestr'].append(datestr)
-            data_lists[index]['timestamp'].append(timestamp)
+            data_lists[index]['timestamp'].append(datestr.timestamp())
+            data_lists[index]['datestr'].append(datetime.strftime(datestr, "%Y/%m/%d %H:%M:%S"))
             data_lists[index]['datestr_flag'].append(datestr_flag)
             if len(data['DEPTH_PRESS'].values) > 1:
                 data_lists[index]['shallowest_depth'].append(min(data['DEPTH_PRESS'][data['DEPTH_PRESS'] != 0]))
