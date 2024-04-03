@@ -20,12 +20,9 @@ def get_dict_index(data_lists, year):
             return k
 
 
-# this functions create the .nc file. If the file already exist, it will append the data into this existent file
+# these functions create the .nc file. If the file already exist, it will append the data into this existent file
 def create_dataset(data_lists, string_attrs, data_path, save_path):
-    os.chdir(data_path[:data_path.rfind("/")])
-    os.chdir("../")
-    dataset = os.getcwd()
-    dataset = dataset[dataset.rfind("/") + 1:]
+    dataset = data_path.split("/")[-3]
 
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
@@ -41,7 +38,8 @@ def create_dataset(data_lists, string_attrs, data_path, save_path):
                 ),
                 data_vars=dict(
                     **{attr: xr.DataArray(data_list[attr], dims=['profile']) for attr in string_attrs if
-                       attr not in ['lat', 'lon', 'timestamp', 'parent_index']},
+                       attr not in ['lat', 'lon', 'timestamp', 'parent_index', 'datestr']},
+                    datestr=xr.DataArray(data_list['datestr'], dims=['profile'], attrs={'timezone': 'UTC'}),
                     # measurements
                     parent_index=xr.DataArray(data_list['parent_index'], dims=['obs']),
                     depth=xr.DataArray(data_list['depth'], dims=['obs']),
