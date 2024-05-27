@@ -47,9 +47,21 @@ class MEDSReader:
             "shallowest_depth",
             "deepest_depth",
             "datestr_flag",
-            "parent_index",
+            "depth_row_size",
+            "press_row_size",
+            "temp_row_size",
+            "psal_row_size",
         ]
-        measurements_attrs = ["depth", "press", "temp", "psal", "depth_flag", "temp_flag", "psal_flag"]
+        measurements_attrs = [
+            "depth",
+            "press",
+            "temp",
+            "psal",
+            "depth_flag",
+            "press_flag",
+            "temp_flag",
+            "psal_flag",
+        ]
         data_lists = {
             year_range: {attr: [] for attr in string_attrs + measurements_attrs}
             for year_range in ["1916_2000", "2001_2010", "2011_2021"]
@@ -108,18 +120,18 @@ class MEDSReader:
                         **{
                             attr: xr.DataArray(data_list[attr], dims=["profile"])
                             for attr in string_attrs
-                            if attr not in ["lat", "lon", "timestamp", "parent_index", "datestr"]
+                            if attr not in ["lat", "lon", "timestamp", "datestr"]
                         },
                         datestr=xr.DataArray(data_list["datestr"], dims=["profile"], attrs={"timezone": "UTC"}),
                         # measurements
-                        parent_index=xr.DataArray(data_list["parent_index"], dims=["obs"]),
-                        depth=xr.DataArray(data_list["depth"], dims=["obs"]),
-                        depth_flag=xr.DataArray(data_list["depth_flag"], dims=["obs"]),
-                        press=xr.DataArray(data_list["press"], dims=["obs"]),
-                        temp=xr.DataArray(data_list["temp"], dims=["obs"]),
-                        temp_flag=xr.DataArray(data_list["temp_flag"], dims=["obs"]),
-                        psal=xr.DataArray(data_list["psal"], dims=["obs"]),
-                        psal_flag=xr.DataArray(data_list["psal_flag"], dims=["obs"]),
+                        depth=xr.DataArray(data_list["depth"], dims=["depth_obs"]),
+                        depth_flag=xr.DataArray(data_list["depth_flag"], dims=["depth_obs"]),
+                        press=xr.DataArray(data_list["press"], dims=["press_obs"]),
+                        press_flag=xr.DataArray(data_list["press_flag"], dims=["press_obs"]),
+                        temp=xr.DataArray(data_list["temp"], dims=["temp_obs"]),
+                        temp_flag=xr.DataArray(data_list["temp_flag"], dims=["temp_obs"]),
+                        psal=xr.DataArray(data_list["psal"], dims=["psal_obs"]),
+                        psal_flag=xr.DataArray(data_list["psal_flag"], dims=["psal_obs"]),
                     ),
                     attrs=dict(
                         dataset_name="MEDS_2021",
@@ -154,21 +166,19 @@ class MEDSReader:
                             for attr in string_attrs
                             if attr not in ["lat", "lon", "timestamp", "parent_index"]
                         },
-                        parent_index=xr.DataArray(
-                            np.append(
-                                ds["parent_index"],
-                                np.array(data_list["parent_index"]) + ds["parent_index"].values[-1] + 1,
-                            ),
-                            dims=["obs"],
-                        ),
                         # measurements
-                        depth=xr.DataArray(np.append(ds["depth"], data_list["depth"]), dims=["obs"]),
-                        depth_flag=xr.DataArray(np.append(ds["depth_flag"], data_list["depth_flag"]), dims=["obs"]),
-                        press=xr.DataArray(np.append(ds["press"], data_list["press"]), dims=["obs"]),
-                        temp=xr.DataArray(np.append(ds["temp"], data_list["temp"]), dims=["obs"]),
-                        temp_flag=xr.DataArray(np.append(ds["temp_flag"], data_list["temp_flag"]), dims=["obs"]),
-                        psal=xr.DataArray(np.append(ds["psal"], data_list["psal"]), dims=["obs"]),
-                        psal_flag=xr.DataArray(np.append(ds["psal_flag"], data_list["psal_flag"]), dims=["obs"]),
+                        depth=xr.DataArray(np.append(ds["depth"], data_list["depth"]), dims=["depth_obs"]),
+                        depth_flag=xr.DataArray(
+                            np.append(ds["depth_flag"], data_list["depth_flag"]), dims=["depth_obs"]
+                        ),
+                        press=xr.DataArray(np.append(ds["press"], data_list["press"]), dims=["press_obs"]),
+                        press_flag=xr.DataArray(
+                            np.append(ds["press_flag"], data_list["press_flag"]), dims=["press_obs"]
+                        ),
+                        temp=xr.DataArray(np.append(ds["temp"], data_list["temp"]), dims=["temp_obs"]),
+                        temp_flag=xr.DataArray(np.append(ds["temp_flag"], data_list["temp_flag"]), dims=["temp_obs"]),
+                        psal=xr.DataArray(np.append(ds["psal"], data_list["psal"]), dims=["psal_obs"]),
+                        psal_flag=xr.DataArray(np.append(ds["psal_flag"], data_list["psal_flag"]), dims=["psal_obs"]),
                     ),
                     attrs=dict(
                         dataset_name="MEDS_2021",
@@ -236,25 +246,23 @@ class MEDSReader:
                 data_lists[index]["deepest_depth"].append(max(data["DEPTH_PRESS"]))
 
                 data_lists[index]["temp"].extend(data["TEMP"])
+                data_lists[index]["temp_row_size"].append(len(data["TEMP"]))
                 data_lists[index]["temp_flag"].extend(data["Q_TEMP"])
                 data_lists[index]["psal"].extend(data["PSAL"])
+                data_lists[index]["psal_row_size"].append(len(data["PSAL"]))
                 data_lists[index]["psal_flag"].extend(data["Q_PSAL"])
 
                 ### check if DEPTH_PRESS is depth of press
                 if data["D_P_CODE"].values.all() == "D":
                     data_lists[index]["depth"].extend(data["DEPTH_PRESS"])
-                    data_lists[index]["press"].extend([np.nan] * len(data["DEPTH_PRESS"]))
+                    data_lists[index]["depth_row_size"].append(len(data["DEPTH_PRESS"]))
+                    data_lists[index]["depth_flag"].extend(data["DP_FLAG"])
+                    data_lists[index]["press_row_size"].append(0)
                 elif data["D_P_CODE"].values.all() == "P":
                     data_lists[index]["press"].extend(data["DEPTH_PRESS"])
-                    data_lists[index]["depth"].extend([np.nan] * len(data["DEPTH_PRESS"]))
-                data_lists[index]["depth_flag"].extend(data["DP_FLAG"])
-
-                ### extend or create parent index
-                if len(data_lists[index]["parent_index"]) > 0:
-                    last_parent_index = data_lists[index]["parent_index"][-1]
-                    data_lists[index]["parent_index"].extend([(last_parent_index + 1)] * len(data["DEPTH_PRESS"]))
-                else:
-                    data_lists[index]["parent_index"].extend([0] * len(data["DEPTH_PRESS"]))
+                    data_lists[index]["press_row_size"].append(len(data["DEPTH_PRESS"]))
+                    data_lists[index]["press_flag"].extend(data["DP_FLAG"])
+                    data_lists[index]["depth_row_size"].append(0)
 
     # this function reads the MEDS profile data. It reads the csv files in chunks because of the loads of data
     def run(self, data_path, save_path):
@@ -282,15 +290,15 @@ def main():
 
     It defines the paths to the data files, initializes a MEDSReader object, and processes each data file.
     """
-    meds_2015_2021 = "../original_data/a_MEDS_profile_prof_2015_2021.csv"
-    meds_2009_2014 = "../original_data/a_MEDS_profile_prof_2009_2014.csv"
-    meds_1916_2008 = "../original_data/a_MEDS_profile_prof_1916_2008.csv"
+    meds_2015_2021 = "/mnt/storage6/caio/AW_CAA/CTD_DATA/MEDS_2021/original_data/a_MEDS_profile_prof_2015_2021.csv"
+    meds_2009_2014 = "/mnt/storage6/caio/AW_CAA/CTD_DATA/MEDS_2021/original_data/a_MEDS_profile_prof_2009_2014.csv"
+    meds_1916_2008 = "/mnt/storage6/caio/AW_CAA/CTD_DATA/MEDS_2021/original_data/a_MEDS_profile_prof_1916_2008.csv"
 
     data_path_list = [meds_1916_2008, meds_2009_2014, meds_2015_2021]
     meds_reader = MEDSReader()
 
     for data_path in data_path_list:
-        save_path = "../ncfiles_raw"
+        save_path = "/mnt/storage6/caio/AW_CAA/CTD_DATA/MEDS_2021/ncfiles_raw"
         print(f"reading {data_path}...")
         meds_reader.run(data_path, save_path)
 
