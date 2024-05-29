@@ -275,11 +275,7 @@ class MEDSReader:
         """
         string_attrs, measurements_attrs, data_lists = self.initialize_variables()
 
-        with pd.read_csv(
-            data_path,
-            chunksize=10**6,
-            low_memory=False,
-        ) as reader:
+        with pd.read_csv(data_path, chunksize=10**6, low_memory=False) as reader:
             self.process_chunks(reader, data_lists)
             self.create_dataset(data_lists, string_attrs, data_path, save_path)
 
